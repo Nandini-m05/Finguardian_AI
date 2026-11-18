@@ -1,0 +1,18 @@
+# Keep the image small and secrets out of it
+.git
+.github
+.env
+.env.*
+!.env.example
+venv/
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+tests/
+scripts/
+docs/
+frontend/
+supabase/
+*.md
+*.zip

@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FinGuardian AI: explainable market analysis with a human in the loop</title>
+<meta name="description" content="An eight-agent pipeline that turns public market data and news into an explainable analysis outlook, and pauses for a human reviewer when something looks suspicious. Educational project, not investment advice.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&display=swap" rel="stylesheet">
+<style>
+:root {
+  --paper: #F2F5F7;
+  --panel: #FFFFFF;
+  --ink: #15202B;
+  --muted: #4A5A6A;
+  --rule: #C9D4DC;
+  --blue: #1B4F8C;
+  --amber: #C27C0E;
+  --amber-ink: #8A5600;
+  --measure: 68ch;
+  --sans: "Bricolage Grotesque", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --serif: "Source Serif 4", Georgia, "Times New Roman", serif;
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; color-scheme: light; }
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font: 400 1.0625rem/1.65 var(--serif);
+}
+h1, h2, h3, .name, .btn, .report-head, .outlook, dt, .num, .bar { font-family: var(--sans); }
+a { color: var(--blue); text-underline-offset: 0.2em; }
+a:focus-visible, .btn:focus-visible {
+  outline: 3px solid var(--blue);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+.wrap { max-width: 1080px; margin: 0 auto; padding: 0 1.5rem; }
+
+/* Disclaimer bar: first thing anyone sees */
+.bar {
+  background: var(--ink);
+  color: #E6EDF2;
+  font-weight: 600;
+  font-size: 0.92rem;
+  line-height: 1.4;
+  padding: 0.65rem 1.5rem;
+  text-align: center;
+}
+.bar a { color: #fff; }
+
+/* Hero */
+.hero {
+  padding: 3.5rem 0 3.25rem;
+  border-bottom: 1px solid var(--rule);
+  background-image:
+    linear-gradient(rgba(21, 32, 43, 0.06) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(21, 32, 43, 0.06) 1px, transparent 1px);
+  background-size: 32px 32px;
+}
+.hero-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
+  gap: 3rem;
+  align-items: start;
+}
+.name { margin: 0 0 1rem; font-weight: 600; font-size: 1rem; color: var(--muted); }
+h1 {
+  margin: 0 0 1.25rem;
+  font-weight: 800;
+  font-size: clamp(2.1rem, 4.6vw, 3.4rem);
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+  max-width: 20ch;
+}
+.lede { margin: 0 0 1.75rem; max-width: var(--measure); font-size: 1.15rem; }
+.actions { display: flex; flex-wrap: wrap; gap: 0.75rem; margin: 0; }
+.btn {
+  display: inline-block;
+  padding: 0.7rem 1.1rem;
+  border: 1.5px solid var(--ink);
+  border-radius: 6px;
+  color: var(--ink);
+  font-weight: 600;
+  text-decoration: none;
+  background: transparent;
+}
+.btn.primary { background: var(--ink); color: #fff; }
+.btn:hover { background: var(--blue); border-color: var(--blue); color: #fff; }
+
+/* Sample output, typeset like the report it comes from */
+.report {
+  background: var(--panel);
+  border: 1px solid var(--rule);
+  border-left: 6px solid var(--amber);
+  border-radius: 6px;
+  padding: 1.25rem 1.4rem 1.1rem;
+}
+.report-head { margin: 0; font-weight: 600; color: var(--muted); font-size: 0.95rem; }
+.outlook { margin: 0.35rem 0 0.25rem; font-weight: 800; font-size: 1.9rem; line-height: 1.1; color: var(--amber-ink); }
+.caption { margin: 0 0 1rem; color: var(--muted); font-size: 0.95rem; }
+.report dl { margin: 0; }
+.report dl div {
+  display: grid;
+  grid-template-columns: 9.5rem 1fr;
+  gap: 0.75rem;
+  padding: 0.55rem 0;
+  border-top: 1px solid var(--rule);
+}
+.report dt { font-weight: 600; font-size: 0.95rem; color: var(--muted); }
+.report dd { margin: 0; font-size: 0.98rem; }
+.fine { margin: 0.9rem 0 0; font-size: 0.85rem; color: var(--muted); }
+
+/* Sections */
+section { padding: 3.25rem 0; border-bottom: 1px solid var(--rule); }
+section:last-of-type { border-bottom: 0; }
+h2 { margin: 0 0 1.25rem; font-weight: 600; font-size: clamp(1.5rem, 3vw, 2rem); line-height: 1.15; letter-spacing: -0.01em; }
+h3 { margin: 0 0 0.35rem; font-weight: 600; font-size: 1.15rem; line-height: 1.25; }
+.prose { max-width: var(--measure); margin: 0 0 1rem; }
+.facts { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem 3rem; margin-top: 1.75rem; }
+.facts div { border-left: 3px solid var(--blue); padding-left: 1rem; }
+.facts p { margin: 0; }
+
+/* The pipeline: a route with one gate */
+.route { list-style: none; margin: 2rem 0 0; padding: 0; max-width: 46rem; }
+.route li { position: relative; padding: 0 0 1.6rem 3.4rem; }
+.route li::before {
+  content: "";
+  position: absolute;
+  left: 1.05rem;
+  top: 2.3rem;
+  bottom: -0.3rem;
+  width: 2px;
+  background: var(--rule);
+}
+.route li:last-child::before { display: none; }
+.route li:last-child { padding-bottom: 0; }
+.num {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 2.2rem;
+  height: 2.2rem;
+  border-radius: 50%;
+  background: var(--ink);
+  color: #fff;
+  font-weight: 600;
+  font-size: 0.95rem;
+  display: grid;
+  place-items: center;
+}
+.route h3 { margin-top: 0.2rem; }
+.route p { margin: 0; }
+.route li.gate .num {
+  background: var(--amber-ink);
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+.route li.gate .num::before,
+.route li.gate .num::after { content: ""; width: 4px; height: 14px; background: #fff; border-radius: 1px; }
+.gate-box {
+  background: var(--panel);
+  border: 2px solid var(--amber);
+  border-radius: 6px;
+  padding: 0.9rem 1.1rem 1rem;
+}
+
+/* Screenshots */
+.shots { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 2rem; margin-top: 1.5rem; }
+figure { margin: 0; }
+figure img { display: block; width: 100%; height: auto; border: 1px solid var(--rule); border-radius: 6px; background: var(--panel); }
+figcaption { margin-top: 0.6rem; color: var(--muted); font-size: 0.95rem; }
+
+/* Run it */
+pre {
+  margin: 1rem 0 0;
+  padding: 1rem 1.2rem;
+  background: var(--ink);
+  color: #E6EDF2;
+  border-radius: 6px;
+  overflow-x: auto;
+  font: 400 0.9rem/1.6 ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
+}
+
+/* Scope */
+.scope { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2rem; margin-top: 1.5rem; }
+.scope ul { margin: 0; padding-left: 1.1rem; }
+.scope li { margin: 0.45rem 0; }
+
+footer { padding: 2rem 0 3rem; color: var(--muted); font-size: 0.95rem; }
+footer p { margin: 0 0 0.4rem; }
+
+@media (max-width: 860px) {
+  .hero-grid, .facts, .scope { grid-template-columns: 1fr; }
+  .hero-grid { gap: 2rem; }
+  .report dl div { grid-template-columns: 1fr; gap: 0.1rem; }
+}
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+}
+</style>
+</head>
+<body>
+
+<div class="bar" role="note">
+  Educational project. Not investment advice, and not registered with SEBI or any financial regulator.
+  <a href="#scope">Read the scope</a>
+</div>
+
+<header class="hero">
+  <div class="wrap hero-grid">
+    <div>
+      <p class="name">FinGuardian AI</p>
+      <h1>Eight agents analyse a stock. A human reviews anything suspicious.</h1>
+      <p class="lede">
+        FinGuardian AI turns public price data and news into a plain-English analysis: an explained risk score,
+        an anomaly screen, and an outlook that describes the signals without telling anyone to buy or sell.
+        Flagged cases stop and wait for an administrator.
+      </p>
+      <p class="actions">
+        <a class="btn primary" href="https://github.com/Nandini-m05/finguardian-ai">View the code on GitHub</a>
+        <a class="btn" href="#run">Run it yourself</a>
+      </p>
+    </div>
+
+    <aside class="report" aria-labelledby="sample-title">
+      <p class="report-head" id="sample-title">Sample output: AAPL</p>
+      <p class="outlook">Mixed signals</p>
+      <p class="caption">A summary of what the signals show. It is not an instruction to buy, sell or hold.</p>
+      <dl>
+        <div><dt>Risk score</dt><dd>41.9 / 100</dd></div>
+        <div><dt>Main risk factor</dt><dd>Elevated price volatility (3.57)</dd></div>
+        <div><dt>Anomaly screen</dt><dd>Not flagged (confidence 0.001)</dd></div>
+        <div><dt>Mainly driven by</dt><dd>5-day trading range and today's price movement</dd></div>
+        <div><dt>Human decision</dt><dd>Approved (no review was required)</dd></div>
+      </dl>
+      <p class="fine">Captured on 26 October 2026 from a real run. This is not current market analysis.</p>
+    </aside>
+  </div>
+</header>
+
+<main>
+  <section>
+    <div class="wrap">
+      <h2>What it does</h2>
+      <p class="prose">
+        You give it a stock symbol. It collects what is publicly available, checks it several ways,
+        and writes up what it found.
+      </p>
+      <div class="facts">
+        <div>
+          <h3>Reads public data</h3>
+          <p>Recent prices and news headlines from Yahoo Finance (through yfinance) for the symbol you ask about.</p>
+        </div>
+        <div>
+          <h3>Scores what it finds</h3>
+          <p>Volatility and momentum from prices, sentiment from FinBERT, a transparent 0 to 100 risk score, and an anomaly screen from two models, with SHAP showing which inputs mattered.</p>
+        </div>
+        <div>
+          <h3>Stops for a human</h3>
+          <p>If a case looks suspicious, or the two models disagree, the run pauses. An administrator approves or rejects it. The person who submitted a case can't review it, and a rejection always wins over the models.</p>
+        </div>
+        <div>
+          <h3>Explains itself</h3>
+          <p>Every run ends in a plain-English report and an outlook of positive, mixed or negative signals. It describes conditions and never tells anyone what to do with a security.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap">
+      <h2>The pipeline</h2>
+      <p class="prose">
+        Each analysis moves through these stations in order. Progress is saved to Postgres after every step,
+        so a paused case survives a server restart and can be resumed later.
+      </p>
+      <ol class="route">
+        <li><span class="num" aria-hidden="true">1</span>
+          <h3>Data collector</h3>
+          <p>Fetches prices and news, and records the hand-off on a Redis stream.</p></li>
+        <li><span class="num" aria-hidden="true">2</span>
+          <h3>Market analysis</h3>
+          <p>Price change, five-day volatility and range, and momentum.</p></li>
+        <li><span class="num" aria-hidden="true">3</span>
+          <h3>News intelligence</h3>
+          <p>Scores each article with FinBERT, a sentiment model tuned on financial text, and combines the scores.</p></li>
+        <li><span class="num" aria-hidden="true">4</span>
+          <h3>Risk assessment</h3>
+          <p>Combines volatility, sentiment and momentum into a 0 to 100 score with named contributing factors.</p></li>
+        <li><span class="num" aria-hidden="true">5</span>
+          <h3>Fraud detection</h3>
+          <p>XGBoost and Isolation Forest screen for anomalies, and SHAP explains the result.</p></li>
+        <li class="gate"><span class="num" aria-hidden="true"></span>
+          <div class="gate-box">
+            <h3>Human review gate</h3>
+            <p>Flagged cases stop here. An administrator approves or rejects them, never the person who submitted them. Clean cases pass straight through.</p>
+          </div></li>
+        <li><span class="num" aria-hidden="true">6</span>
+          <h3>Outlook</h3>
+          <p>Summarises risk, momentum, sentiment and any human decision as positive, mixed or negative signals.</p></li>
+        <li><span class="num" aria-hidden="true">7</span>
+          <h3>Explainability and report</h3>
+          <p>Writes the plain-English report, with the disclaimer attached.</p></li>
+        <li><span class="num" aria-hidden="true">8</span>
+          <h3>Alert and notification</h3>
+          <p>Decides whether to raise a warning or critical alert, records it, and emails it through a background worker.</p></li>
+      </ol>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap">
+      <h2>In the app</h2>
+      <p class="prose">The Streamlit dashboard has pages for running an analysis, reading your history, and, for administrators, a review queue of flagged cases from other users.</p>
+      <div class="shots">
+        <figure>
+          <img src="screenshots/analysis-outlook.png" alt="Streamlit Analyze page showing AAPL completed with an analysis outlook of mixed signals, a risk score of 41.9 out of 100, and the start of the full report" onerror="this.closest('figure').hidden = true">
+          <figcaption>A finished analysis: the outlook, the risk score, and the full report underneath.</figcaption>
+        </figure>
+        <figure>
+          <img src="screenshots/history.png" alt="Streamlit History page listing past analyses with their outlook and status" onerror="this.closest('figure').hidden = true">
+          <figcaption>History keeps every analysis you have run, with full detail.</figcaption>
+        </figure>
+        <figure>
+          <img src="screenshots/admin-review.png" alt="Streamlit Admin Review page showing a flagged case with SHAP drivers and approve and reject buttons" onerror="this.closest('figure').hidden = true">
+          <figcaption>The review queue: flagged cases from other users, with the model's reasoning.</figcaption>
+        </figure>
+        <figure>
+          <img src="screenshots/how-it-works.png" alt="Streamlit How It Works page explaining the pipeline and the scope of the project" onerror="this.closest('figure').hidden = true">
+          <figcaption>The app explains its own pipeline and limits to every visitor.</figcaption>
+        </figure>
+      </div>
+    </div>
+  </section>
+
+  <section id="run">
+    <div class="wrap">
+      <h2>Run it yourself</h2>
+      <p class="prose">
+        There is no hosted version, so there is nothing public to log in to. The whole stack runs on one machine.
+        You need Python 3.11, Docker Desktop, and a free Resend API key.
+        The README lists every environment variable.
+      </p>
+<pre><code>git clone https://github.com/Nandini-m05/finguardian-ai.git
+cd finguardian-ai
+python -m venv venv
+venv\Scripts\activate
+pip install -r requirements.txt
+
+# create a .env file (see the README), then:
+docker compose up -d
+alembic upgrade head
+
+# each of these in its own terminal:
+uvicorn app.main:app --reload
+celery -A app.celery_app worker --loglevel=info --pool=solo
+streamlit run streamlit_app/app.py</code></pre>
+    </div>
+  </section>
+
+  <section id="scope">
+    <div class="wrap">
+      <h2>Scope and limits</h2>
+      <p class="prose">
+        This is a learning and portfolio project. In India, investment advice and research analysis are
+        regulated activities. This project is not registered with any regulator, charges nothing, and is not offered to the public as a service.
+      </p>
+      <div class="scope">
+        <div>
+          <h3>What it is</h3>
+          <ul>
+            <li>An automated analysis of public market data</li>
+            <li>A demonstration of multi-agent orchestration, human review and explainability</li>
+            <li>Open code you can read and run</li>
+          </ul>
+        </div>
+        <div>
+          <h3>What it is not</h3>
+          <ul>
+            <li>Investment advice, a research report, or a recommendation to buy, sell or hold anything</li>
+            <li>Personalised: it knows nothing about your goals, portfolio or risk tolerance</li>
+            <li>A trading system, or something to base financial decisions on</li>
+          </ul>
+        </div>
+        <div>
+          <h3>Limits worth knowing</h3>
+          <ul>
+            <li>The anomaly models are trained on synthetic data created at startup. They have not been validated on real manipulation cases.</li>
+            <li>The risk score is a hand-weighted heuristic and has not been backtested.</li>
+            <li>Free data sources can be delayed, incomplete or wrong.</li>
+            <li>Only large US-listed symbols have been tried.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <p>A B.Tech CSE capstone project, built with FastAPI, LangGraph, FinBERT, XGBoost, SHAP and Streamlit.</p>
+    <p><a href="https://github.com/Nandini-m05/finguardian-ai">Source code on GitHub</a></p>
+  </div>
+</footer>
+
+</body>
+</html>

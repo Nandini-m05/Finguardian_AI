@@ -1,0 +1,90 @@
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: finguardian
+          POSTGRES_PASSWORD: finguardian_test_password
+          POSTGRES_DB: finguardian_db
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      APP_ENV: test
+      DATABASE_URL: postgresql+asyncpg://finguardian:finguardian_test_password@localhost:5432/finguardian_db
+      JWT_SECRET: ci-test-secret-not-for-production-0123456789
+      ALERT_DELIVERY: disabled
+      PRELOAD_MODELS: "false"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Cache HuggingFace models
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/huggingface
+          key: huggingface-finbert-${{ runner.os }}
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-dev.txt
+
+      # Same path as a real Supabase project: create the roles Supabase has,
+      # then run the schema script, then prove Alembic agrees it is at head.
+      - name: Create Supabase-like roles
+        run: |
+          PGPASSWORD=finguardian_test_password psql -h localhost -U finguardian -d finguardian_db \
+            -c "CREATE ROLE anon NOLOGIN; CREATE ROLE authenticated NOLOGIN;"
+
+      - name: Apply supabase/01_schema.sql
+        run: |
+          PGPASSWORD=finguardian_test_password psql -v ON_ERROR_STOP=1 -h localhost -U finguardian \
+            -d finguardian_db -f supabase/01_schema.sql
+
+      - name: Alembic is at head (no pending migrations)
+        run: alembic current | grep -q "c4e8f1a2b9d0 (head)"
+
+      - name: Run tests
+        run: pytest -v
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install
+        run: npm install --no-audit --no-fund
+      - name: Build
+        run: npm run build
+      - name: Mock API boots
+        run: |
+          node mock/server.mjs & sleep 2
+          curl -fsS http://localhost:8000/health

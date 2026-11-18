@@ -1,0 +1,5 @@
+# Only needed for ALERT_DELIVERY=celery or a Redis Streams mirror (REDIS_URL).
+# The default setup (Supabase only) does NOT need these.
+# pip install -r requirements-optional.txt
+celery==5.6.3
+redis==8.1.0
